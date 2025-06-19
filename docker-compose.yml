@@ -1,0 +1,145 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fiber-boilerplate-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
+    environment:
+      # Override DATABASE_URL to use Docker network hostname
+      - DATABASE_URL=postgres://yugabyte:yugabyte@db:5433/yugabyte?sslmode=disable
+      # Override service URLs to use Docker network hostnames
+      - TEMPORAL_HOST=temporal:7233
+      - OPA_URL=http://opa:8181
+      - OTEL_ENDPOINT=http://jaeger:14268/api/traces
+    depends_on:
+      db:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    container_name: fiber-boilerplate-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://yugabyte:yugabyte@db:5433/yugabyte?sslmode=disable
+      - TEMPORAL_HOST=temporal:7233
+    depends_on:
+      db:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  db:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: fiber-boilerplate-db
+    command: bin/yugabyted start --daemon=false --tserver_flags="default_memory_limit_to_ram_ratio=0.35" --master_flags="default_memory_limit_to_ram_ratio=0.35"
+    environment:
+      - YSQL_USER=yugabyte
+      - YSQL_PASSWORD=yugabyte
+      - YSQL_DB=yugabyte
+    ports:
+      - "5433:5433"  # YSQL port
+      - "9042:9042"  # YCQL port
+      - "7001:7000"  # YB-Master web UI
+      - "9001:9000"  # YB-TServer web UI
+    volumes:
+      - yugabyte_data:/home/yugabyte/yb_data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'SELECT 1' | bin/ysqlsh -h localhost -p 5433 -U yugabyte || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  temporal:
+    image: temporalio/auto-setup:1.22.0
+    container_name: fiber-boilerplate-temporal
+    environment:
+      - DB=postgresql
+      - DB_PORT=5433
+      - POSTGRES_USER=yugabyte
+      - POSTGRES_PWD=yugabyte
+      - POSTGRES_SEEDS=db
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"   # Temporal server
+      - "8233:8233"   # Temporal web UI
+    volumes:
+      - ./temporal:/etc/temporal/config/dynamicconfig
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  opa:
+    image: openpolicyagent/opa:0.57.0-envoy
+    container_name: fiber-boilerplate-opa
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=debug"
+      - "/policies"
+    volumes:
+      - ./internal/opa/policies:/policies
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8181/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.49.0
+    container_name: fiber-boilerplate-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"  # Jaeger web UI
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - app-network
+
+volumes:
+  yugabyte_data:
+
+networks:
+  app-network:
+    driver: bridge
+
+    

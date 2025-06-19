@@ -1,0 +1,20 @@
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+
+limit.maxIDLength:
+  - value: 1000
+
+frontend.enableClientVersionCheck:
+  - value: false
+
+history.persistenceMaxQPS:
+  - value: 3000
+
+frontend.persistenceMaxQPS:
+  - value: 3000
+
+frontend.historyMgrNumConns:
+  - value: 10
+
+frontend.throttledLogRPS:
+  - value: 20

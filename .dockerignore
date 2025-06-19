@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+
+# CI
+.github
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env
+.env.*
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+app.log
+
+# Dependencies
+vendor/
+
+# Build artifacts
+bin/
+dist/
+main
+worker
+api
+
+# Test files
+*_test.go
+coverage/
+*.test
+*.out
+
+# Temporary files
+tmp/
+temp/
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Air (hot reload)
+.air.toml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Certificates
+*.pem
+*.key
+*.crt
+
+# Profiling
+*.prof
+*.trace
