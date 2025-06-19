@@ -27,7 +27,12 @@ filtered_user_fields[field] if {
 }
 
 filtered_user_fields[field] if {
-    field in ["created_at", "updated_at"]
+    field := "created_at"
+    "admin" in input.user.roles
+}
+
+filtered_user_fields[field] if {
+    field := "updated_at"
     "admin" in input.user.roles
 }
 
