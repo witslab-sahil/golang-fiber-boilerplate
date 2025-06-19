@@ -90,4 +90,5 @@ tmp/
 *.prof
 *.trace
 
-bin
+# Build binaries
+bin/
